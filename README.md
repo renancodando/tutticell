@@ -18,7 +18,7 @@ A prévia abre em `http://127.0.0.1:4173`. O build gera `dist/`, configurado em 
 
 - Diagnóstico guiado: tipo de problema, sintoma e aparelho. Preenche o formulário e organiza a mensagem; o diagnóstico técnico continua no atendimento da loja.
 - Catálogo: seis categorias, busca sem distinção de acentos, filtros, detalhes com fotografia e seleção de interesses em uma única mensagem.
-- Mensagem editável e cópia antes de abrir o WhatsApp. Nenhuma mensagem é enviada automaticamente.
+- O formulário abre o WhatsApp diretamente com os dados preenchidos na mensagem. Consultas de acessórios mantêm a prévia editável. Nenhuma mensagem é enviada automaticamente.
 - Horário calculado em `America/Sao_Paulo`, navegação por teclado, diálogos nativos e preferência por movimento reduzido.
 - Sem contas, serviços de IA, rastreamento ou banco de dados. Os formulários ficam na memória da página até o visitante abrir o WhatsApp.
 
