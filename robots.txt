@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://tutticell.vercel.app/sitemap.xml

@@ -1,0 +1,8 @@
+{
+  "name": "tutticell",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Tutticell — eletrônicos, acessórios e atendimento guiado em Campinas.",
+  "scripts": {"dev":"node scripts/serve.cjs","test":"node --test tests/logic.test.cjs","build":"node scripts/build.cjs"},
+  "engines": {"node": ">=20"}
+}

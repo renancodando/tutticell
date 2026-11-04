@@ -1,138 +1,56 @@
 (() => {
   'use strict';
-  const $ = (s, root = document) => root.querySelector(s);
-  const $$ = (s, root = document) => [...root.querySelectorAll(s)];
-  const form = $('#quote-form');
-  const fields = ['brand', 'model', 'problem'];
-  const dialog = $('#message-dialog');
-  const preview = $('#message-preview');
-  const configuredNumber = String(window.QUALITECH_CONFIG?.whatsapp || '').replace(/\D/g, '');
-  const number = /^\d{10,15}$/.test(configuredNumber) ? configuredNumber : '';
-  let toastTimer;
-  const toast = message => {
-    $('.toast').textContent = message;
-    $('.toast').classList.add('visible');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => $('.toast').classList.remove('visible'), 3500);
-  };
-  $('#year').textContent = new Date().getFullYear();
-  const toggle = $('.menu-toggle');
-  const closeMenu = () => { toggle.setAttribute('aria-expanded', 'false'); $('.nav').classList.remove('open'); toggle.setAttribute('aria-label', 'Abrir menu'); };
-  toggle.addEventListener('click', () => {
-    const open = toggle.getAttribute('aria-expanded') !== 'true';
-    toggle.setAttribute('aria-expanded', String(open));
-    toggle.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
-    $('.nav').classList.toggle('open', open);
-  });
-  $$('.nav a').forEach(a => a.addEventListener('click', closeMenu));
-  document.addEventListener('click', e => { if (!e.target.closest('.header')) closeMenu(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
-  const navLinks = $$('.nav a');
-  const observer = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (!entry.isIntersecting) return;
-      navLinks.forEach(a => { const active = a.hash === '#' + entry.target.id; a.classList.toggle('active', active); if (active) a.setAttribute('aria-current', 'location'); else a.removeAttribute('aria-current'); });
-    });
-  }, { rootMargin: '-10% 0px -65% 0px', threshold: 0 });
-  ['inicio', 'servicos', 'sobre', 'depoimentos', 'contato'].forEach(id => observer.observe(document.getElementById(id)));
-  try {
-    const draft = JSON.parse(localStorage.getItem('tutticell-quote') || '{}');
-    fields.forEach(id => { if (typeof draft[id] === 'string') $('#' + id).value = draft[id]; });
-  } catch { /* O formulário também funciona sem armazenamento local. */ }
-  const errorText = { brand: 'Selecione a marca do aparelho.', model: 'Informe o modelo do aparelho.', problem: 'Descreva o que aconteceu.' };
-  const validate = id => {
-    const input = $('#' + id);
-    const valid = input.value.trim().length > 0;
-    input.setAttribute('aria-invalid', String(!valid));
-    $('#' + id + '-error').textContent = valid ? '' : errorText[id];
-    return valid;
-  };
-  form.addEventListener('input', e => {
-    if (fields.includes(e.target.id) && e.target.hasAttribute('aria-invalid')) validate(e.target.id);
-    try { localStorage.setItem('tutticell-quote', JSON.stringify(Object.fromEntries(fields.map(id => [id, $('#' + id).value])))); } catch { /* Armazenamento opcional. */ }
-  });
-  const updateLink = () => {
-    const text = encodeURIComponent(preview.value.trim());
-    $('#send-message').href = number ? `https://wa.me/${number}?text=${text}` : `https://api.whatsapp.com/send?text=${text}`;
-  };
-  const openMessage = (message, feedback = false) => {
-    $('#dialog-title').textContent = feedback ? 'Sua experiência importa.' : 'Seu pedido está pronto.';
-    $('#dialog-description').textContent = 'Revise a mensagem antes de continuar.';
-    preview.value = message;
-    $('#connection-note').textContent = number ? 'O WhatsApp será aberto com a mensagem pronta. O envio é confirmado por você.' : 'O número da assistência ainda não foi configurado. Copie a mensagem ou selecione o contato da Tutticell ao abrir o WhatsApp.';
-    updateLink();
-    dialog.showModal();
-  };
-  form.addEventListener('submit', e => {
-    e.preventDefault();
-    const invalid = fields.filter(id => !validate(id));
-    if (invalid.length) { $('#' + invalid[0]).focus(); return; }
-    openMessage(`Olá, Tutticell! Gostaria de solicitar um orçamento.\n\nMarca: ${$('#brand').value.trim()}\nModelo: ${$('#model').value.trim()}\nProblema: ${$('#problem').value.trim()}\n\nComo podemos prosseguir?`);
-  });
-  $$('[data-contact]').forEach(button => button.addEventListener('click', () => openMessage('Olá, Tutticell! Gostaria de saber mais sobre a assistência técnica para meu aparelho.')));
-  $$('[data-feedback]').forEach(button => button.addEventListener('click', () => openMessage('Olá, Tutticell! Gostaria de compartilhar minha experiência com o atendimento:\n\n', true)));
-  preview.addEventListener('input', updateLink);
-  $('.dialog-close').addEventListener('click', () => dialog.close());
-  dialog.addEventListener('click', e => { if (e.target === dialog) { const rect = dialog.getBoundingClientRect(); if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) dialog.close(); } });
-  $('#copy-message').addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(preview.value); toast('Mensagem copiada!'); }
-    catch { preview.focus(); preview.select(); toast('Selecione e copie a mensagem com Ctrl+C.'); }
-  });
-  const steps = [
-    '01 · Solicitação — Envie a marca, o modelo e uma descrição do problema. Se possível, compartilhe fotos durante a conversa pelo WhatsApp.',
-    '02 · Diagnóstico — O aparelho é avaliado para identificar a causa do problema. Você recebe as opções de reparo, o orçamento e a previsão de prazo.',
-    '03 · Reparo — Com sua aprovação, o serviço é realizado. Se o diagnóstico mudar, você é consultado antes de qualquer serviço adicional.',
-    '04 · Retirada — Após os testes de funcionamento, combinamos a retirada e explicamos os cuidados e as condições de garantia do serviço.'
-  ];
-  $$('[data-step]').forEach(button => button.addEventListener('click', () => {
-    const expanded = button.getAttribute('aria-expanded') === 'true';
-    $$('[data-step]').forEach(b => b.setAttribute('aria-expanded', 'false'));
-    button.setAttribute('aria-expanded', String(!expanded));
-    $('#step-detail').hidden = expanded;
-    $('#step-detail').textContent = expanded ? '' : steps[Number(button.dataset.step)];
-  }));
-  const services = {
-    phone: [
-      ['phone', 'Troca de tela', 'Tela quebrada, manchas ou falhas no toque? Solicite uma avaliação para o seu modelo.', 'A tela está com problema. Gostaria de avaliar a troca.'],
-      ['bolt', 'Bateria e carregamento', 'Bateria que dura pouco, aparelho que não carrega ou desliga sozinho.', 'O aparelho está com problema de bateria ou carregamento.'],
-      ['chip', 'Reparos e desempenho', 'Travamentos, falhas de áudio, câmeras ou aparelho que não liga. Vamos investigar.', 'Meu smartphone precisa de um diagnóstico.']
-    ],
-    computer: [
-      ['laptop', 'Desempenho e sistema', 'Computador lento, erros no sistema e dificuldades para iniciar ou trabalhar.', 'Meu computador apresenta lentidão ou falhas no sistema.'],
-      ['chip', 'Upgrade e manutenção', 'Avaliação para expansão de memória, instalação de SSD e manutenção preventiva.', 'Gostaria de avaliar um upgrade ou manutenção do computador.'],
-      ['tools', 'Reparos de hardware', 'Problemas no teclado, na tela ou no carregamento do notebook.', 'Meu notebook está com um problema de hardware.']
-    ],
-    game: [
-      ['game', 'Diagnóstico do console', 'Console que não inicia, desliga sozinho ou apresenta falhas durante o jogo.', 'Meu videogame precisa de um diagnóstico.'],
-      ['tools', 'Limpeza e manutenção', 'Avaliação de ruídos, aquecimento e necessidade de manutenção do console.', 'Gostaria de avaliar a limpeza e manutenção do meu console.'],
-      ['chip', 'Conexões e controles', 'Falhas de imagem, conectores ou controles? Informe o modelo para avaliação.', 'Meu videogame apresenta falhas nas conexões ou no controle.']
-    ]
-  };
-  const tabs = $$('[data-category]');
-  const renderServices = category => {
-    $('#service-panel').innerHTML = services[category].map(([icon, title, desc], i) => `<article class="service-card"><svg aria-hidden="true"><use href="#i-${icon}"/></svg><h3>${title}</h3><p>${desc}</p><button class="text-link" data-service="${i}">Solicitar avaliação <svg aria-hidden="true"><use href="#i-arrow"/></svg></button></article>`).join('');
-    $$('#service-panel [data-service]').forEach(button => button.addEventListener('click', () => {
-      $('#problem').value = services[category][Number(button.dataset.service)][3];
-      $('#problem').dispatchEvent(new Event('input', { bubbles: true }));
-      document.getElementById('orcamento').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
-      setTimeout(() => $('#brand').focus({ preventScroll: true }), 450);
-      toast('Serviço selecionado. Complete os dados do aparelho.');
-    }));
-  };
-  tabs.forEach((tab, index) => {
-    tab.addEventListener('click', () => {
-      tabs.forEach(t => { t.setAttribute('aria-selected', String(t === tab)); t.tabIndex = t === tab ? 0 : -1; });
-      $('#service-panel').setAttribute('aria-labelledby', tab.id);
-      renderServices(tab.dataset.category);
-    });
-    tab.addEventListener('keydown', e => {
-      let target;
-      if (e.key === 'ArrowRight') target = (index + 1) % tabs.length;
-      if (e.key === 'ArrowLeft') target = (index + tabs.length - 1) % tabs.length;
-      if (e.key === 'Home') target = 0;
-      if (e.key === 'End') target = tabs.length - 1;
-      if (target !== undefined) { e.preventDefault(); tabs[target].focus(); tabs[target].click(); }
-    });
-  });
-  renderServices('phone');
+  const $=(s,root=document)=>root.querySelector(s),$$=(s,root=document)=>[...root.querySelectorAll(s)],logic=window.TutticellLogic;
+  const toastEl=$('#toast');let toastTimer;
+  function toast(text){toastEl.textContent=text;toastEl.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.classList.remove('show'),3200);}
+  const menuButton=$('.menu-toggle'),menu=$('#expanded-menu');
+  function closeMenu(){menu.hidden=true;menuButton.setAttribute('aria-expanded','false');menuButton.setAttribute('aria-label','Abrir menu');}
+  menuButton.addEventListener('click',()=>{const open=menu.hidden;menu.hidden=!open;menuButton.setAttribute('aria-expanded',String(open));menuButton.setAttribute('aria-label',open?'Fechar menu':'Abrir menu');});
+  $$('a',menu).forEach(a=>a.addEventListener('click',closeMenu));
+  document.addEventListener('click',e=>{if(!menu.hidden&&!menu.contains(e.target)&&!menuButton.contains(e.target))closeMenu();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu.hidden){closeMenu();menuButton.focus();}});
+  $$('[data-close-dialog]').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
+  $$('dialog').forEach(d=>{d.addEventListener('click',e=>{if(e.target!==d)return;const r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close();});d.addEventListener('close',()=>{if(!$$('dialog[open]').length)document.body.classList.remove('modal-open');});});
+  function showDialog(d){closeMenu();d.showModal();document.body.classList.add('modal-open');}
+  function updateHours(){const status=logic.storeStatus();$$('[data-store-status]').forEach(el=>{el.classList.toggle('is-open',status.open);$('b',el).textContent=status.text;});}
+  updateHours();setInterval(updateHours,60000);
+  const form=$('#quote-form'),problem=$('#problem'),summary=$('#diagnosis-summary');let guidedSymptom='';
+  const updateHint=()=>$('#problem-hint').textContent=logic.hints[problem.value]||'';
+  problem.addEventListener('change',()=>{guidedSymptom='';summary.hidden=true;summary.replaceChildren();updateHint();});
+  function updateDeviceSummary(){if(!summary.hidden)$('strong',summary).textContent=[$('#brand').value,$('#model').value.trim()].filter(Boolean).join(' ');}
+  $('#brand').addEventListener('change',updateDeviceSummary);$('#model').addEventListener('input',updateDeviceSummary);
+  function scrollToQuote(){$('#orcamento').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});$('#name').focus({preventScroll:true});}
+  const wizard=$('#diagnosis-dialog'),content=$('#wizard-content'),title=$('#diagnosis-title'),back=$('#wizard-back');let state={};
+  const services=[['Tela','i-phone'],['Bateria','i-battery'],['Câmera','i-camera'],['Carregamento','i-charge'],['Outro problema','i-grid']];
+  function openWizard(service=''){state={step:service?1:0,service,symptom:'',brand:$('#brand').value,model:$('#model').value};renderWizard();showDialog(wizard);}
+  $$('[data-diagnosis]').forEach(b=>b.addEventListener('click',()=>openWizard()));
+  $$('[data-service]').forEach(b=>b.addEventListener('click',()=>openWizard(b.dataset.service)));
+  function renderWizard(){
+    const step=state.step;$('#wizard-step').textContent=`PASSO 0${step+1} DE 03`;$$('.wizard-progress span').forEach((el,i)=>el.classList.toggle('active',i<=step));back.hidden=step===0;content.replaceChildren();
+    if(step===0){title.innerHTML='O que aconteceu<br><em>com seu aparelho?</em>';const options=document.createElement('div');options.className='diagnosis-options';services.forEach(([name,icon])=>{const b=document.createElement('button');b.type='button';b.innerHTML=`<svg><use href="#${icon}"/></svg><span></span>`;$('span',b).textContent=name;b.addEventListener('click',()=>{state.service=name;state.step=1;renderWizard();});options.append(b);});content.append(options);}
+    else if(step===1){title.textContent=`Vamos entender melhor: ${state.service.toLowerCase()}.`;const p=document.createElement('p');p.textContent='Qual opção descreve melhor o que você percebeu?';content.append(p);const options=document.createElement('div');options.className='symptom-options';logic.symptoms[state.service].forEach(text=>{const b=document.createElement('button');b.textContent=text;const arrow=document.createElement('span');arrow.textContent='↗';b.append(arrow);b.addEventListener('click',()=>{state.symptom=text;state.step=2;renderWizard();});options.append(b);});content.append(options);}
+    else {title.innerHTML='Qual aparelho<br><em>está com você?</em>';const f=document.createElement('form');f.className='wizard-device-form';f.innerHTML='<label for="diag-brand">Marca do aparelho</label><select id="diag-brand" required><option value="">Selecione a marca</option><option>Apple</option><option>Samsung</option><option>Motorola</option><option>Xiaomi</option><option>LG</option><option>Outra</option></select><label for="diag-model">Modelo</label><input id="diag-model" placeholder="Ex.: iPhone 13 ou Galaxy A54" maxlength="100" required><p class="wizard-insight"></p><button class="button button-primary" type="submit">Continuar com meu aparelho <svg><use href="#i-arrow"/></svg></button>';$('#diag-brand',f).value=state.brand;$('#diag-model',f).value=state.model;$('.wizard-insight',f).textContent=logic.hints[state.service];f.addEventListener('input',()=>{state.brand=$('#diag-brand',f).value;state.model=$('#diag-model',f).value;});f.addEventListener('submit',e=>{e.preventDefault();if(!f.reportValidity())return;if(!state.model.trim()){$('#diag-model',f).focus();return;}$('#brand').value=state.brand;$('#model').value=state.model.trim();problem.value=state.service;guidedSymptom=state.symptom;updateHint();summary.replaceChildren();const tag=document.createElement('span');tag.textContent='ATENDIMENTO GUIADO';const strong=document.createElement('strong');strong.textContent=state.brand+' '+state.model.trim();const detail=document.createElement('p');detail.textContent=state.service+' · '+state.symptom;summary.append(tag,strong,detail);summary.hidden=false;wizard.close();scrollToQuote();toast('Pronto! Seu aparelho já está no formulário.');});content.append(f);}
+    if(wizard.open)content.querySelector('button,input,select')?.focus({preventScroll:true});
+  }
+  back.addEventListener('click',()=>{state.step=Math.max(0,state.step-1);renderWizard();});
+  const messageDialog=$('#message-dialog'),preview=$('#message-preview'),send=$('#send-message');
+  function updateLink(){const valid=Boolean(preview.value.trim());send.href=valid?logic.whatsappUrl(preview.value.trim()):'https://wa.me/'+logic.phone;send.setAttribute('aria-disabled',String(!valid));}
+  function openMessage(message){preview.value=message;updateLink();showDialog(messageDialog);}
+  preview.addEventListener('input',updateLink);send.addEventListener('click',e=>{if(!preview.value.trim()){e.preventDefault();preview.focus();}});
+  $('#copy-message').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(preview.value);toast('Mensagem copiada.');}catch{preview.focus();preview.select();toast('Selecione e copie a mensagem com Ctrl+C.');}});
+  const interests=new Map();
+  form.addEventListener('submit',e=>{e.preventDefault();if(!form.reportValidity())return;const data=Object.fromEntries(new FormData(form));if(!data.name.trim()||!data.model.trim()){toast('Preencha seu nome e o modelo do aparelho.');(!data.name.trim()?$('#name'):$('#model')).focus();return;}openMessage(logic.buildMessage({...data,symptom:guidedSymptom},[...interests.values()]));});
+  const productDialog=$('#product-dialog');let current=null;
+  function openProduct(id){current=logic.products.find(p=>p.id===id);if(!current)return;$('#product-title').textContent=current.name;$('#product-description').textContent=current.description;$('#product-image').src='assets/'+current.image;$('#product-image').alt=current.alt;$('#product-model').value=interests.get(id)?.model||$('#model').value;$('#add-interest').firstChild.textContent=interests.has(id)?'Atualizar minha seleção ':'Adicionar à minha seleção ';showDialog(productDialog);}
+  $$('[data-product]').forEach(b=>b.addEventListener('click',()=>openProduct(b.dataset.product)));
+  function renderInterests(){const area=$('#interest-list'),tags=$('#interest-tags');area.hidden=interests.size===0;tags.replaceChildren();interests.forEach(item=>{const p=logic.products.find(p=>p.id===item.id),tag=document.createElement('span'),text=document.createElement('span'),remove=document.createElement('button');tag.className='interest-tag';text.textContent=p.name+(item.model?' · '+item.model:'');remove.textContent='×';remove.setAttribute('aria-label','Remover '+p.name);remove.addEventListener('click',()=>{interests.delete(item.id);renderInterests();});tag.append(text,remove);tags.append(tag);});$$('[data-product]').forEach(b=>{const selected=interests.has(b.dataset.product);b.classList.toggle('selected',selected);b.setAttribute('aria-label',logic.products.find(p=>p.id===b.dataset.product).name+(selected?' — na sua seleção':''));});}
+  $('#add-interest').addEventListener('click',()=>{interests.set(current.id,{id:current.id,model:$('#product-model').value.trim()});renderInterests();productDialog.close();toast('Adicionado à sua seleção.');});
+  $('#product-direct').addEventListener('click',()=>{const item={id:current.id,model:$('#product-model').value.trim()};productDialog.close();openMessage(logic.buildMessage({},[item]));});
+  $('#send-interests').addEventListener('click',()=>openMessage(logic.buildMessage({},[...interests.values()])));
+  let category='todos';const search=$('#catalog-search');
+  function updateCatalog(){const results=logic.filterProducts(category,search.value),ids=new Set(results.map(p=>p.id));$$('[data-product]').forEach(el=>el.hidden=!ids.has(el.dataset.product));$('#catalog-empty').hidden=results.length>0;$('#catalog-count').textContent=`${results.length} ${results.length===1?'categoria encontrada':'categorias para explorar'}`;$$('[data-filter]').forEach(b=>b.setAttribute('aria-pressed',String(category===b.dataset.filter)));}
+  $$('[data-filter]').forEach(b=>b.addEventListener('click',()=>{category=b.dataset.filter;updateCatalog();}));search.addEventListener('input',updateCatalog);$('#clear-search').addEventListener('click',()=>{category='todos';search.value='';updateCatalog();search.focus();});
+  $$('.faq-list details').forEach(d=>d.addEventListener('toggle',()=>{if(d.open)$$('.faq-list details').forEach(other=>{if(other!==d)other.open=false;});}));
+  renderInterests();$('#year').textContent=new Date().getFullYear();
+  if('IntersectionObserver' in window){document.documentElement.classList.add('motion');const reveal=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('visible');reveal.unobserve(entry.target);}}),{threshold:.06});$$('.reveal').forEach(el=>reveal.observe(el));const nav=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting)$$('.desktop-nav a').forEach(a=>{const active=a.hash==='#'+entry.target.id;a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','location');else a.removeAttribute('aria-current');});}),{rootMargin:'-12% 0px -65% 0px',threshold:0});$$('main section[id],#servicos').forEach(el=>nav.observe(el));}
 })();
